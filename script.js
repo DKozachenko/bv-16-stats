@@ -10,62 +10,76 @@ const RUSSIA_SOUTHWEST_BOUNDS = [19.0, 41.0]; // Kaliningrad region
 const RUSSIA_NORTHEAST_BOUNDS = [190.0, 82.0]; // Chukotka and Far East
 
 const HEATMAP_COLORS = {
-  0: '#0000FF00',
-  0.2: '#0000FF33',
-  0.4: '#00FFFF66',
-  0.6: '#00FF0099',
-  0.8: '#FFFF00CC',
-  1: '#FF0000FF'
+  0: '#0000FF00',  // Transparent Blue
+  0.2: '#00FFFF',  // Cyan
+  0.4: '#00FF00',  // Green
+  0.6: '#FFFF00',  // Yellow
+  0.8: '#FFA500',  // Orange
+  1: '#FF0000'     // Red
 };
 
-function processParticipantsData(data) {
-  return data.participants;
+async function fetchParticipantsData() {
+  try {
+    const response = await fetch(DATA_FILE);
+    if (!response.ok) {
+      throw new Error('Failed to fetch participants data');
+    }
+    const data = await response.json();
+    return data.participants;
+  } catch (error) {
+    console.error('Error loading participants data:', error);
+    return [];
+  }
 }
 
-function initializeMap() {
-  const map = new maplibregl.Map({
-    container: 'map',
-    style: 'https://api.maptiler.com/maps/streets/style.json?key=xQmnB8CNEr2OP6dEg5Du',
-    center: RUSSIA_CENTER_COORDINATES,
-    zoom: 0 // Minimum zoom to show maximum area
+function updateStats(participants) {
+  const statsContainer = document.getElementById('stats');
+  const tbody = statsContainer.querySelector('.stats-body');
+  tbody.innerHTML = '';
+
+  // Count participants per city
+  const cityStats = participants.reduce((acc, participant) => {
+    const city = participant.placeName;
+    acc[city] = (acc[city] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  // Sort cities by number of participants (descending)
+  const sortedCities = Object.entries(cityStats)
+    .sort((a, b) => b[1] - a[1]);
+
+  // Add rows to the table
+  sortedCities.forEach(([city, count]) => {
+    const row = document.createElement('tr');
+    row.className = 'stats-row';
+    row.innerHTML = `
+      <td>${city}</td>
+      <td>${count}</td>
+    `;
+    tbody.appendChild(row);
   });
-
-  // Set bounds to focus on Russia
-  map.setMaxBounds([
-    RUSSIA_SOUTHWEST_BOUNDS,
-    RUSSIA_NORTHEAST_BOUNDS
-  ]);
-
-  return map;
 }
 
 function addParticipantsSource(map, participants) {
+  const features = participants.map(participant => ({
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'Point',
+      coordinates: participant.coordinates
+    }
+  }));
+
   map.addSource('participants', {
     type: 'geojson',
     data: {
       type: 'FeatureCollection',
-      features: participants.map(participant => ({
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: participant.coordinates
-        },
-        properties: {
-          name: participant.name,
-          city: participant.city
-        }
-      }))
+      features: features
     }
   });
 }
 
 function addHeatmapLayer(map) {
-  // We need to use parseFloat because Object.keys() returns strings,
-  // and we need to sort them numerically for the interpolate expression
-  const colorStops = Object.entries(HEATMAP_COLORS)
-    .sort(([a], [b]) => parseFloat(a) - parseFloat(b))
-    .map(([density, color]) => [parseFloat(density), color]);
-
   map.addLayer({
     id: 'participants-heat',
     type: 'heatmap',
@@ -77,7 +91,10 @@ function addHeatmapLayer(map) {
         'interpolate',
         ['linear'],
         ['heatmap-density'],
-        ...colorStops.flat()
+        ...Object.entries(HEATMAP_COLORS)
+          .sort(([a], [b]) => Number(a) - Number(b))
+          .map(([stop, color]) => [Number(stop), color])
+          .flat()
       ],
       'heatmap-radius': 30,
       'heatmap-opacity': 0.8
@@ -85,50 +102,30 @@ function addHeatmapLayer(map) {
   });
 }
 
-function displayStatistics(participants) {
-  const statsContainer = document.getElementById('stats');
-  const cityStats = participants.reduce((acc, participant) => {
-    const city = participant.city;
-    if (!acc[city]) {
-      acc[city] = {
-        count: 0,
-        coordinates: participant.coordinates,
-        names: []
-      };
-    }
-    acc[city].count++;
-    acc[city].names.push(participant.name);
-    return acc;
-  }, {});
-
-  Object.entries(cityStats).forEach(([city, stats]) => {
-    const statItem = document.createElement('div');
-    statItem.className = 'stat-item';
-    statItem.innerHTML = `
-      <h3>${city}</h3>
-      <p>Количество участниц: ${stats.count}</p>
-      <p>Участницы: ${stats.names.join(', ')}</p>
-    `;
-    statsContainer.appendChild(statItem);
+function initializeMap() {
+  const map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://api.maptiler.com/maps/streets/style.json?key=xQmnB8CNEr2OP6dEg5Du',
+    center: RUSSIA_CENTER_COORDINATES,
+    zoom: 0 // Minimum zoom to show maximum area
   });
+
+  map.setMaxBounds([
+    RUSSIA_SOUTHWEST_BOUNDS,
+    RUSSIA_NORTHEAST_BOUNDS
+  ]);
+
+  return map;
 }
 
-// Initialize map
-const map = initializeMap();
+async function initializeApp() {
+  const participants = await fetchParticipantsData();
+  const map = initializeMap();
+  map.on('load', () => {
+    addParticipantsSource(map, participants);
+    addHeatmapLayer(map);
+  });
+  updateStats(participants);
+}
 
-// Load and process participants data
-fetch(DATA_FILE)
-  .then(response => response.json())
-  .then(data => {
-    const participants = processParticipantsData(data);
-
-    // Add heatmap layer
-    map.on('load', () => {
-      addParticipantsSource(map, participants);
-      addHeatmapLayer(map);
-    });
-
-    // Display statistics
-    displayStatistics(participants);
-  })
-  .catch(error => console.error('Error loading data:', error));
+initializeApp();
