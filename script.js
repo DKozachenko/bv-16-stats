@@ -1,4 +1,4 @@
-const DATA_FILE = 'data/participants.json';
+const DATA_FILE = 'data/data.json';
 
 // Coordinates for the approximate center of Russia's populated regions
 // [longitude, latitude] - MapLibre uses [lng, lat] format
@@ -18,29 +18,30 @@ const HEATMAP_COLORS = {
   1: '#FF0000'     // Red
 };
 
-async function fetchParticipantsData() {
+async function fetchData() {
   try {
     const response = await fetch(DATA_FILE);
     if (!response.ok) {
-      throw new Error('Failed to fetch participants data');
+      throw new Error('Failed to fetch data');
     }
-    const data = await response.json();
-    return data.participants;
+    return await response.json();
   } catch (error) {
-    console.error('Error loading participants data:', error);
-    return [];
+    console.error('Error loading data:', error);
+    return { cities: [], participants: [] };
   }
 }
 
-function updateStats(participants) {
+function updateStats(participants, cities) {
   const statsContainer = document.getElementById('stats');
   const tbody = statsContainer.querySelector('.stats-body');
   tbody.innerHTML = '';
 
   // Count participants per city
   const cityStats = participants.reduce((acc, participant) => {
-    const city = participant.placeName;
-    acc[city] = (acc[city] ?? 0) + 1;
+    const city = cities.find(c => c.id === participant.city_id);
+    if (city) {
+      acc[city.name] = (acc[city.name] ?? 0) + 1;
+    }
     return acc;
   }, {});
 
@@ -60,15 +61,18 @@ function updateStats(participants) {
   });
 }
 
-function addParticipantsSource(map, participants) {
-  const features = participants.map(participant => ({
-    type: 'Feature',
-    properties: {},
-    geometry: {
-      type: 'Point',
-      coordinates: participant.coordinates
-    }
-  }));
+function addParticipantsSource(map, participants, cities) {
+  const features = participants.map(participant => {
+    const city = cities.find(c => c.id === participant.city_id);
+    return {
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'Point',
+        coordinates: city ? city.coordinates : [0, 0]
+      }
+    };
+  });
 
   map.addSource('participants', {
     type: 'geojson',
@@ -119,13 +123,13 @@ function initializeMap() {
 }
 
 async function initializeApp() {
-  const participants = await fetchParticipantsData();
+  const { cities, participants } = await fetchData();
   const map = initializeMap();
   map.on('load', () => {
-    addParticipantsSource(map, participants);
+    addParticipantsSource(map, participants, cities);
     addHeatmapLayer(map);
   });
-  updateStats(participants);
+  updateStats(participants, cities);
 }
 
 initializeApp();
