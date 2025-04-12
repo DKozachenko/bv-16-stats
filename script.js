@@ -1,6 +1,13 @@
 const DATA_FILE = 'data/participants.json';
 
-const MOSCOW_COORDINATES = [37.6173, 55.7558];
+// Coordinates for the approximate center of Russia's populated regions
+// [longitude, latitude] - MapLibre uses [lng, lat] format
+const RUSSIA_CENTER_COORDINATES = [82.0, 58.0]; // Near Novosibirsk, better coverage of populated areas
+
+// Russia's boundaries
+// [longitude, latitude] - MapLibre uses [lng, lat] format
+const RUSSIA_SOUTHWEST_BOUNDS = [19.0, 41.0]; // Kaliningrad region
+const RUSSIA_NORTHEAST_BOUNDS = [190.0, 82.0]; // Chukotka and Far East
 
 const HEATMAP_COLORS = {
   0: '#0000FF00',
@@ -16,12 +23,20 @@ function processParticipantsData(data) {
 }
 
 function initializeMap() {
-  return new maplibregl.Map({
+  const map = new maplibregl.Map({
     container: 'map',
     style: 'https://api.maptiler.com/maps/streets/style.json?key=xQmnB8CNEr2OP6dEg5Du',
-    center: MOSCOW_COORDINATES,
-    zoom: 4
+    center: RUSSIA_CENTER_COORDINATES,
+    zoom: 0 // Minimum zoom to show maximum area
   });
+
+  // Set bounds to focus on Russia
+  map.setMaxBounds([
+    RUSSIA_SOUTHWEST_BOUNDS,
+    RUSSIA_NORTHEAST_BOUNDS
+  ]);
+
+  return map;
 }
 
 function addParticipantsSource(map, participants) {
