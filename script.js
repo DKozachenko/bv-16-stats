@@ -4,18 +4,18 @@ const DATA_FILE = 'data/data.json';
 // [longitude, latitude] - MapLibre uses [lng, lat] format
 const RUSSIA_CENTER_COORDINATES = [82.0, 58.0]; // Near Novosibirsk, better coverage of populated areas
 
-// Russia's boundaries
+// Map boundaries
 // [longitude, latitude] - MapLibre uses [lng, lat] format
-const RUSSIA_SOUTHWEST_BOUNDS = [19.0, 41.0]; // Kaliningrad region
-const RUSSIA_NORTHEAST_BOUNDS = [190.0, 82.0]; // Chukotka and Far East
+const MAP_SOUTHWEST_BOUNDS = [-9.3, 36.0]; // Most southwestern point of Spain
+const MAP_NORTHEAST_BOUNDS = [190.0, 82.0]; // Far East
 
 const HEATMAP_COLORS = {
   0: '#0000FF00',  // Transparent Blue
-  0.2: '#00FFFF',  // Cyan
-  0.4: '#00FF00',  // Green
-  0.6: '#FFFF00',  // Yellow
-  0.8: '#FFA500',  // Orange
-  1: '#FF0000'     // Red
+  0.2: '#00FFFFC0',  // Cyan
+  0.4: '#00FF00C0',  // Green
+  0.6: '#FFFF00C0',  // Yellow
+  0.8: '#FFA500C0',  // Orange
+  1: '#FF0000C0'     // Red
 };
 
 async function fetchData() {
@@ -115,8 +115,8 @@ function initializeMap() {
   });
 
   map.setMaxBounds([
-    RUSSIA_SOUTHWEST_BOUNDS,
-    RUSSIA_NORTHEAST_BOUNDS
+    MAP_SOUTHWEST_BOUNDS,
+    MAP_NORTHEAST_BOUNDS
   ]);
 
   return map;
