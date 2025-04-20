@@ -1,0 +1,42 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "develop" ]
+
+env:
+  TARGET_PATH: "bv-16-stats"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get repository code
+        uses: actions/checkout@v4
+      - name: Create directory if not exists
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          script: mkdir -p bv-16-stats
+      - name: Copy files to SSH server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          port: ${{ secrets.PORT }}
+          source: "data/data.json,index.html,styles.css,script.js,Caddyfile"
+          target: ${{ env.TARGET_PATH }}
+      - name: Run caddy
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          script: |
+            cd ${{ env.TARGET_PATH }}
+            # Fix from https://github.com/appleboy/ssh-action/issues/40#issuecomment-602325598
+            echo ${{ secrets.PASSWORD }} | sudo -S caddy start --config Caddyfile > caddy.log 2> caddy.err.log
